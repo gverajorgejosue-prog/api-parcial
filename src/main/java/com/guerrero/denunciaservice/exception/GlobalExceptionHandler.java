@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -34,6 +35,18 @@ public class GlobalExceptionHandler {
             IllegalArgumentException ex, HttpServletRequest request) {
         log.warn("Argumento inválido: {}", ex.getMessage());
         return construir(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    /**
+     * Captura parámetros con tipo inválido (por ejemplo un id no numérico)
+     * y responde 400 en lugar de propagar un error 500.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> manejarTipoInvalido(
+            MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        log.warn("Parámetro inválido '{}': {}", ex.getName(), ex.getValue());
+        String mensaje = "El parámetro '" + ex.getName() + "' tiene un valor inválido: " + ex.getValue();
+        return construir(HttpStatus.BAD_REQUEST, mensaje, request);
     }
 
     @ExceptionHandler(Exception.class)

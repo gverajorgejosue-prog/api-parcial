@@ -54,15 +54,23 @@ public class DenunciaController {
     /**
      * Lista denuncias de forma paginada.
      * Ejemplo: GET /denuncias?offset=0&limit=5
+     *
+     * Se registran ambas variantes de ruta ("" y "/") para que también
+     * responda GET /denuncias/ con barra final: en Spring Framework 7 el
+     * trailing slash matching fue eliminado y, sin esto, /denuncias/ caería
+     * en /denuncias/{id} y devolvería un error 500.
+     *
+     * Con la base de datos vacía devuelve 200 OK y content = [] (sin NPE).
      */
-    @GetMapping
+    @GetMapping({ "", "/" })
     public ResponseEntity<Page<Denuncia>> listarPaginado(
             @RequestParam(name = "offset", defaultValue = "0") int offset,
-            @RequestParam(name = "limit", defaultValue = "10") int limit) {
+            @RequestParam(name = "limit", defaultValue = "5") int limit) {
         if (offset < 0 || limit < 1) {
             throw new IllegalArgumentException("El offset debe ser >= 0 y el limit >= 1");
         }
         Page<Denuncia> pagina = denunciaService.listarPaginado(PageRequest.of(offset, limit));
+        // Page nunca es null; si no hay registros, content queda vacío ([]) y se responde 200 OK
         return ResponseEntity.ok(pagina);
     }
 

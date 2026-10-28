@@ -55,6 +55,11 @@ public class DenunciaController {
      * Lista denuncias de forma paginada.
      * Ejemplo: GET /denuncias?offset=0&limit=5
      *
+     * El parametro {@code offset} es el desplazamiento en registros (0, 5, 10...),
+     * no el numero de pagina: se convierte a pagina dividiendo entre {@code limit}.
+     * Asi, offset=0 -> pagina 0 y offset=5 -> pagina 1 (los 5 siguientes).
+     * Se recomienda que offset sea multiplo de limit.
+     *
      * Se registran ambas variantes de ruta ("" y "/") para que también
      * responda GET /denuncias/ con barra final: en Spring Framework 7 el
      * trailing slash matching fue eliminado y, sin esto, /denuncias/ caería
@@ -69,9 +74,10 @@ public class DenunciaController {
         if (offset < 0 || limit < 1) {
             throw new IllegalArgumentException("El offset debe ser >= 0 y el limit >= 1");
         }
-        Page<Denuncia> pagina = denunciaService.listarPaginado(PageRequest.of(offset, limit));
+        int pagina = offset / limit;
+        Page<Denuncia> resultado = denunciaService.listarPaginado(PageRequest.of(pagina, limit));
         // Page nunca es null; si no hay registros, content queda vacío ([]) y se responde 200 OK
-        return ResponseEntity.ok(pagina);
+        return ResponseEntity.ok(resultado);
     }
 
     /** Obtiene una denuncia por su ID. */

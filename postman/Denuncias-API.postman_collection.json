@@ -1,0 +1,349 @@
+{
+  "info": {
+    "_postman_id": "6a1f0d3e-2b7c-4d55-9a1e-8c3b5f0a9d21",
+    "name": "Denuncias API - Render",
+    "description": "Validacion automatizada de la API de denuncias desplegada en Render.\n\nCubre: listado paginado (con y sin barra final), pagina fuera de rango, parametros invalidos, registro (POST), detalle (GET por id), atencion (PUT), busqueda por DNI y errores 400/404.\n\nEjecutar: newman run Denuncias-API.postman_collection.json -e Denuncias-Render.postman_environment.json",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://denunciaservice-guerrero.onrender.com" },
+    { "key": "dniPrueba", "value": "99001122" },
+    { "key": "createdId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "00 - Servicio disponible",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('Responde JSON', () => pm.response.to.be.json);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/denuncias/?offset=0&limit=1"
+      }
+    },
+    {
+      "name": "01 - Listado paginado (barra final)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('Responde JSON', () => pm.response.to.be.json);",
+              "const j = pm.response.json();",
+              "pm.test('content es un arreglo', () => pm.expect(j.content).to.be.an('array'));",
+              "pm.test('content no supera limit=5', () => pm.expect(j.content.length).to.be.at.most(5));",
+              "pm.test('size = 5', () => pm.expect(j.size).to.eql(5));",
+              "pm.test('totalElements es numero', () => pm.expect(j.totalElements).to.be.a('number'));",
+              "pm.test('totalPages es numero', () => pm.expect(j.totalPages).to.be.a('number'));",
+              "if (j.content.length > 0) {",
+              "  const d = j.content[0];",
+              "  pm.test('El item tiene los 7 campos exactos', () => pm.expect(d).to.have.all.keys('id','dni','fecha','tipo','direccion','descripcion','estado'));",
+              "  pm.test('dni tiene 8 digitos', () => pm.expect(d.dni).to.match(/^\\d{8}$/));",
+              "  pm.test('estado es 0 o 1', () => pm.expect([0,1]).to.include(d.estado));",
+              "  pm.test('fecha en formato ISO-8601', () => pm.expect(d.fecha).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/denuncias/?offset=0&limit=5"
+      }
+    },
+    {
+      "name": "02 - Listado sin barra final",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+              "const j = pm.response.json();",
+              "pm.test('content es un arreglo', () => pm.expect(j.content).to.be.an('array'));",
+              "pm.test('size = 5', () => pm.expect(j.size).to.eql(5));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/denuncias?offset=0&limit=5"
+      }
+    },
+    {
+      "name": "03 - Segunda pagina (offset=5)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+              "const j = pm.response.json();",
+              "pm.test('content es un arreglo', () => pm.expect(j.content).to.be.an('array'));",
+              "pm.test('number = 1 (segunda pagina)', () => pm.expect(j.number).to.eql(1));",
+              "pm.test('content no supera 5', () => pm.expect(j.content.length).to.be.at.most(5));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/denuncias/?offset=5&limit=5"
+      }
+    },
+    {
+      "name": "04 - Pagina fuera de rango (sin resultados)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200 OK (no 500)', () => pm.response.to.have.status(200));",
+              "const j = pm.response.json();",
+              "pm.test('content es un arreglo vacio', () => { pm.expect(j.content).to.be.an('array'); pm.expect(j.content).to.have.lengthOf(0); });",
+              "pm.test('empty = true', () => pm.expect(j.empty).to.eql(true));",
+              "pm.test('numberOfElements = 0', () => pm.expect(j.numberOfElements).to.eql(0));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/denuncias/?offset=9999&limit=5"
+      }
+    },
+    {
+      "name": "05 - Parametro invalido (offset=-1)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+              "pm.test('Responde JSON', () => pm.response.to.be.json);",
+              "const j = pm.response.json();",
+              "pm.test('Incluye mensaje de error', () => pm.expect(j).to.have.property('mensaje'));",
+              "pm.test('status del cuerpo = 400', () => pm.expect(j.status).to.eql(400));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/denuncias?offset=-1&limit=5"
+      }
+    },
+    {
+      "name": "06 - Registrar denuncia (POST)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+              "pm.test('Header Location presente', () => pm.expect(pm.response.headers.has('Location')).to.eql(true));",
+              "const j = pm.response.json();",
+              "pm.collectionVariables.set('createdId', j.id);",
+              "pm.test('Devuelve id numerico', () => pm.expect(j.id).to.be.a('number'));",
+              "pm.test('estado inicial = 1', () => pm.expect(j.estado).to.eql(1));",
+              "pm.test('fecha asignada por el backend', () => pm.expect(j.fecha).to.be.a('string'));",
+              "pm.test('DNI coincide con el enviado', () => pm.expect(j.dni).to.eql(pm.variables.get('dniPrueba')));",
+              "pm.test('Tipo coincide', () => pm.expect(j.tipo).to.eql('ROBO'));",
+              "pm.test('Direccion coincide', () => pm.expect(j.direccion).to.eql('Av. Postman 123'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"dni\": \"{{dniPrueba}}\",\n  \"tipo\": \"ROBO\",\n  \"direccion\": \"Av. Postman 123\",\n  \"descripcion\": \"Validacion automatizada desde Postman\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/denuncias"
+      }
+    },
+    {
+      "name": "07 - Detalle por ID",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+              "const j = pm.response.json();",
+              "pm.test('id coincide con el creado', () => pm.expect(j.id).to.eql(Number(pm.collectionVariables.get('createdId'))));",
+              "pm.test('dni coincide', () => pm.expect(j.dni).to.eql(pm.variables.get('dniPrueba')));",
+              "pm.test('estado = 1 (pendiente)', () => pm.expect(j.estado).to.eql(1));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/denuncias/{{createdId}}"
+      }
+    },
+    {
+      "name": "08 - Atender denuncia (PUT)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+              "const j = pm.response.json();",
+              "pm.test('estado pasa a 0 (atendida)', () => pm.expect(j.estado).to.eql(0));",
+              "pm.test('mismo id', () => pm.expect(j.id).to.eql(Number(pm.collectionVariables.get('createdId'))));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [],
+        "url": "{{baseUrl}}/denuncias/{{createdId}}"
+      }
+    },
+    {
+      "name": "09 - Detalle tras atender (persistencia)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+              "const j = pm.response.json();",
+              "pm.test('estado persiste en 0', () => pm.expect(j.estado).to.eql(0));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/denuncias/{{createdId}}"
+      }
+    },
+    {
+      "name": "10 - Busqueda por DNI",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+              "const arr = pm.response.json();",
+              "pm.test('Devuelve un arreglo', () => pm.expect(arr).to.be.an('array'));",
+              "pm.test('Todos son del DNI consultado', () => { arr.forEach(d => pm.expect(d.dni).to.eql(pm.variables.get('dniPrueba'))); });",
+              "pm.test('Incluye la denuncia creada', () => pm.expect(arr.map(d => d.id)).to.include(Number(pm.collectionVariables.get('createdId'))));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/denuncias/ciudadano/{{dniPrueba}}"
+      }
+    },
+    {
+      "name": "11 - Busqueda DNI sin resultados",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200 OK (no 500)', () => pm.response.to.have.status(200));",
+              "const arr = pm.response.json();",
+              "pm.test('Arreglo vacio', () => { pm.expect(arr).to.be.an('array'); pm.expect(arr).to.have.lengthOf(0); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/denuncias/ciudadano/00000000"
+      }
+    },
+    {
+      "name": "12 - ID inexistente (404)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 404 Not Found', () => pm.response.to.have.status(404));",
+              "pm.test('Responde JSON', () => pm.response.to.be.json);",
+              "const j = pm.response.json();",
+              "pm.test('status del cuerpo = 404', () => pm.expect(j.status).to.eql(404));",
+              "pm.test('Incluye mensaje', () => pm.expect(j).to.have.property('mensaje'));",
+              "pm.test('Incluye path', () => pm.expect(j).to.have.property('path'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/denuncias/999999"
+      }
+    },
+    {
+      "name": "13 - ID no numerico (400)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+              "const j = pm.response.json();",
+              "pm.test('Menciona el parametro invalido', () => pm.expect(j.mensaje).to.include('id'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/denuncias/abc"
+      }
+    }
+  ]
+}
